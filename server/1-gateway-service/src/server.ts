@@ -9,6 +9,7 @@ import compression from 'compression';
 import { StatusCodes } from 'http-status-codes';
 import http from 'http';
 import { config } from '@gateway/config';
+import { elasticSearch } from '@gateway/config/elasticSearch';
 
 const SERVER_PORT = 4000;
 const log: Logger = winstonLogger(`${config.ELASTIC_SEARCH_URL}`, 'apiGatewayServer', 'debug');
@@ -30,9 +31,9 @@ export class GatewayServer {
     app.use(
       cookieSession({
         name: 'session',
-        keys: [],
+        keys: [`${config.SECRET_KEY_ONE}`, `${config.SECRET_KEY_TWO}`],
         maxAge: 24 * 7 * 3600000,
-        secure: false // TODO: update with value from config
+        secure: config.NODE_ENV !== "development" // TODO: update with value from config
         // sameSite: none
       })
     );
@@ -40,7 +41,7 @@ export class GatewayServer {
     app.use(helmet());
     app.use(
       cors({
-        origin: '*',
+        origin: config.CLIENT_URL,
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
       })
@@ -58,7 +59,7 @@ export class GatewayServer {
   }
 
   private startElasticSearch(): void {
-    // TODO: add elastic search
+    elasticSearch.checkConnection();
   }
 
   private globalErrorHandler(app: Application): void {
