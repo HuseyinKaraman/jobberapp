@@ -1,4 +1,4 @@
-import { CustomError, IErrorResponse, winstonLogger } from '@huseyinkaraman/jobber-shared';
+import { CustomError, IAuthPayload, IErrorResponse, winstonLogger } from '@huseyinkaraman/jobber-shared';
 import { Application, json, NextFunction, Request, Response, urlencoded } from 'express';
 import helmet from 'helmet';
 import hpp from 'hpp';
@@ -8,84 +8,89 @@ import compression from 'compression';
 import { StatusCodes } from 'http-status-codes';
 import http from 'http';
 import { config } from '@auth/config';
-import { elasticSearch } from '@auth/config/elasticSearch';
+import { checkConnection } from '@auth/config/elasticSearch';
 import { appRoutes } from '@auth/routes';
+import { verify } from 'jsonwebtoken';
 
-const SERVER_PORT = 4000;
-const log: Logger = winstonLogger(`${config.ELASTIC_SEARCH_URL}`, 'apiGatewayServer', 'debug');
+const SERVER_PORT = 4002;
+const log: Logger = winstonLogger(`${config.ELASTIC_SEARCH_URL}`, 'AuthServer', 'debug');
 
-export class AuthServer {
-  constructor(private app: Application) {}
+export const start = (app: Application): void => {
+  securityMiddleware(app);
+  standardMiddleware(app);
+  routesMiddleware(app);
+  startQueues();
+  startElasticSearch();
+  authErrorHandler(app);
+  startServer(app);
+}
 
-  start(): void {
-    this.securityMiddleware(this.app);
-    this.standardMiddleware(this.app);
-    this.routesMiddleware(this.app);
-    this.startElasticSearch();
-    this.globalErrorHandler(this.app);
-    this.startServer(this.app);
-  }
-
-  private securityMiddleware(app: Application): void {
-    app.set('trust proxy', 1);
-    app.use(hpp());
-    app.use(helmet());
-    app.use(
-      cors({
-        origin: config.API_GATEWAY_URL,
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-      })
-    );
-  }
-
-  private standardMiddleware(app: Application): void {
-    app.use(compression());
-    app.use(json({ limit: '50mb' }));
-    app.use(urlencoded({ extended: true, limit: '50mb' }));
-  }
-
-  private routesMiddleware(app: Application): void {
-    appRoutes(app);
-  }
-
-  private startElasticSearch(): void {
-    elasticSearch.checkConnection();
-  }
-
-  private globalErrorHandler(app: Application): void {
-    app.use('*', (req: Request, res: Response, next: NextFunction) => {
-      const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-      log.log('error', `${fullUrl} endpoint does not exist`, '');
-      res.status(StatusCodes.NOT_FOUND).json({ message: 'The endpoint called does not exist' });
-      next();
-    });
-    app.use((error: IErrorResponse, req: Request, res: Response, next: NextFunction) => {
-      log.log('error', `GatewayService ${error.comingFrom}: `, error);
-      if (error instanceof CustomError) {
-        res.status(error.statusCode).json(error.serializedError());
-      }
-      next();
-    });
-  }
-
-  private async startServer(app: Application): Promise<void> {
-    try {
-      const httpServer: http.Server = new http.Server(app);
-      this.startHttpServer(httpServer);
-    } catch (error) {
-      log.log('error', `GatewayService startServer() method error: `, error);
+const securityMiddleware = (app: Application): void => {
+  app.set('trust proxy', 1);
+  app.use(hpp());
+  app.use(helmet());
+  app.use(
+    cors({
+      origin: config.API_GATEWAY_URL,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    })
+  );
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.headers.authorization) {
+      const authorization = req.headers.authorization.split(' ')[1];
+      const payload: IAuthPayload = verify(authorization, config.JWT_TOKEN!) as IAuthPayload;
+      req.currentUser = payload;
     }
-  }
+    next();
+  });
+}
 
-  private async startHttpServer(httpServer: http.Server): Promise<void> {
-    try {
-      log.info(`Gateway server has started with process id: ${process.pid}`);
-      httpServer.listen(SERVER_PORT, () => {
-        log.info(`Gateway server is running on port ${SERVER_PORT}`);
-      });
-    } catch (error) {
-      log.log('error', `GatewayService startHttpServer() method error: `, error);
-    }
+const standardMiddleware = (app: Application): void => {
+  app.use(compression());
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
+}
+
+const routesMiddleware = (app: Application): void => {
+  appRoutes(app);
+}
+
+const startElasticSearch = (): void => {
+  checkConnection();
+}
+
+const startServer = async (app: Application): Promise<void> => {
+  try {
+    const httpServer: http.Server = new http.Server(app);
+    startHttpServer(httpServer);
+  } catch (error) {
+    log.log('error', `AuthService startServer() method error: `, error);
   }
 }
+
+const startHttpServer = async (httpServer: http.Server): Promise<void> => {
+  try {
+    log.info(`Authentication server has started with process id: ${process.pid}`);
+    httpServer.listen(SERVER_PORT, () => {
+      log.info(`Authentication server is running on port ${SERVER_PORT}`);
+    });
+  } catch (error) {
+    log.log('error', `AuthService startHttpServer() method error: `, error);
+  }
+}
+
+const authErrorHandler = (app: Application): void => {
+  app.use((error: IErrorResponse, req: Request, res: Response, next: NextFunction) => {
+    log.log('error', `AuthService ${error.comingFrom}: `, error);
+    if (error instanceof CustomError) {
+      res.status(error.statusCode).json(error.serializedError());
+    }
+    next();
+  });
+}
+
+const startQueues = (): void => {
+  throw new Error('Function not implemented.');
+}
+
