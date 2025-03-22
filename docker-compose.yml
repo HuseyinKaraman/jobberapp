@@ -107,7 +107,7 @@ services:
     build:
       context: server/1-gateway-service
       dockerfile: Dockerfile.dev
-    restart: always
+    # restart: always
     ports:
       - 4000:4000
     env_file: server/1-gateway-service/.env
@@ -136,7 +136,7 @@ services:
     build:
       context: server/2-notification-service
       dockerfile: Dockerfile.dev
-    restart: always
+    # restart: always
     ports:
       - 4001:4001
     env_file: server/2-notification-service/.env

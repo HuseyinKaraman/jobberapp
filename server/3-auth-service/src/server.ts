@@ -91,6 +91,5 @@ const authErrorHandler = (app: Application): void => {
 }
 
 const startQueues = (): void => {
-  throw new Error('Function not implemented.');
 }
 
