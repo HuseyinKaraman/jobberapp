@@ -60,7 +60,12 @@ const AuthModel: ModelDefined<IAuthDocument, AuthUserCreationAttributes> = seque
     }, {
       unique: true,
       fields: ['username']
-    }],
+    },
+    {
+      unique: true,
+      fields: ['emailVerificationToken']
+    }
+  ],
     tableName: 'auth',
     timestamps: false
   }
