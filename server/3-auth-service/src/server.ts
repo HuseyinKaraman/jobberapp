@@ -11,9 +11,13 @@ import { config } from '@auth/config';
 import { checkConnection } from '@auth/config/elasticSearch';
 import { appRoutes } from '@auth/routes';
 import { verify } from 'jsonwebtoken';
+import { Channel } from 'amqplib';
+import { createConnection } from '@auth/config/rabbitmqConnection';
 
 const SERVER_PORT = 4002;
 const log: Logger = winstonLogger(`${config.ELASTIC_SEARCH_URL}`, 'AuthServer', 'debug');
+
+export let authChannel: Channel;
 
 export const start = (app: Application): void => {
   securityMiddleware(app);
@@ -56,6 +60,10 @@ const routesMiddleware = (app: Application): void => {
   appRoutes(app);
 }
 
+const startQueues = async (): Promise<void> => {
+  authChannel = await createConnection() as Channel;
+}
+
 const startElasticSearch = (): void => {
   checkConnection();
 }
@@ -89,7 +97,3 @@ const authErrorHandler = (app: Application): void => {
     next();
   });
 }
-
-const startQueues = (): void => {
-}
-
