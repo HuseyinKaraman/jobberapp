@@ -13,6 +13,7 @@ class Config {
   public CLOUDINARY_CLOUD_NAME: string | undefined;
   public CLOUDINARY_API_KEY: string | undefined;
   public CLOUDINARY_API_SECRET: string | undefined;
+  public SALT_ROUNDS: number | undefined;
 
   constructor() {
     this.JWT_TOKEN = process.env.JWT_TOKEN || '';
@@ -26,6 +27,7 @@ class Config {
     this.CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
     this.CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '';
     this.CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || '';
+    this.SALT_ROUNDS = process.env.SALT_ROUNDS ? parseInt(process.env.SALT_ROUNDS) : 10;
   }
 }
 
