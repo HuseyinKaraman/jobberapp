@@ -40,9 +40,10 @@
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.17.1",
-    "@huseyinkaraman/jobber-shared": "^0.0.4",
+    "@huseyinkaraman/jobber-shared": "^0.0.5",
     "amqplib": "^0.10.5",
     "bcryptjs": "^3.0.2",
+    "cloudinary": "^2.6.0",
     "compression": "^1.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -58,6 +59,7 @@
     "sequelize": "^6.37.6",
     "typescript": "^5.8.2",
     "typescript-transform-paths": "^3.5.3",
+    "uuid": "^11.1.0",
     "winston": "^3.17.0"
   }
 }

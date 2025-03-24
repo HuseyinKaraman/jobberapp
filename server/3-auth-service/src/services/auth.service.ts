@@ -1,19 +1,18 @@
 import AuthModel from "@auth/models/auth.schema";
 import { publishDirectMessage } from "@auth/queues/auth.producer";
 import { authChannel } from "@auth/server";
-import { firstLetterUppercase, IAuthBuyerMessageDetails, IAuthDocument, lowerCase } from "@huseyinkaraman/jobber-shared";
+import { firstLetterUppercase, IAuthBuyerMessageDetails, IAuthDocument, lowerCase, ServerError, winstonLogger } from "@huseyinkaraman/jobber-shared";
 import { Model, Op } from "sequelize";
-import { bcryptService } from "./bcrypt.service";
 import { omit } from "lodash";
-import { jwtService } from "./jwt.service";
+import { jwtService } from "@auth/services/jwt.service";
+import { config } from "@auth/config";
+import { Logger } from "winston";
 
+const log: Logger = winstonLogger(`${config.ELASTIC_SEARCH_URL}`, 'authService', 'debug');
 
 export const createAuthUser = async (data: IAuthDocument): Promise<IAuthDocument> => {
-  const hashedPassword = await bcryptService.hash(data.password!);
-  data.password = hashedPassword;
-  
   const result: Model = await AuthModel.create(data);
-  const mesaageDetails : IAuthBuyerMessageDetails = {
+  const messageDetails : IAuthBuyerMessageDetails = {
     email: result.dataValues.email,
     username: result.dataValues.firstName,
     profilePicture: result.dataValues.profilePicture,
@@ -26,7 +25,7 @@ export const createAuthUser = async (data: IAuthDocument): Promise<IAuthDocument
     authChannel,
     'jobber-buyer-update',
     'user-buyer',
-    JSON.stringify(mesaageDetails),
+    JSON.stringify(messageDetails),
     'Buyer details sent to buyer service'
   );
     
@@ -40,7 +39,7 @@ export const getAuthUserById = async (authId: number): Promise<IAuthDocument> =>
       exclude: ['password']
     }
   }) as Model;
-  return result.dataValues as IAuthDocument;
+  return result?.dataValues as IAuthDocument;
 };
 
 export const getUserByUsernameOrEmail = async (username: string, email: string): Promise<IAuthDocument> => {
@@ -52,7 +51,7 @@ export const getUserByUsernameOrEmail = async (username: string, email: string):
       ]
     }
   }) as Model;
-  return result.dataValues
+  return result?.dataValues
 };
 
 export const getUserByUsername = async (username: string): Promise<IAuthDocument> => {
@@ -61,7 +60,7 @@ export const getUserByUsername = async (username: string): Promise<IAuthDocument
       username: firstLetterUppercase(username)
     }
   }) as Model;
-  return result.dataValues;
+  return result?.dataValues;
 };
 
 export const getUserByEmail = async (email: string): Promise<IAuthDocument> => {
@@ -70,7 +69,7 @@ export const getUserByEmail = async (email: string): Promise<IAuthDocument> => {
       email: lowerCase(email)
     }
   }) as Model;
-  return result.dataValues;
+  return result?.dataValues;
 };
 
 export const getAuthUserByVerificationToken = async (token: string): Promise<IAuthDocument> => {
@@ -82,7 +81,7 @@ export const getAuthUserByVerificationToken = async (token: string): Promise<IAu
       exclude: ['password']
     }
   }) as Model;
-  return result.dataValues;
+  return result?.dataValues;
 };
 
 export const getAuthUserByPasswordToken = async (token: string): Promise<IAuthDocument> => {
@@ -94,17 +93,25 @@ export const getAuthUserByPasswordToken = async (token: string): Promise<IAuthDo
       ]
     }
   }) as Model;
-  return result.dataValues;
+  return result?.dataValues;
 };
 
-export const updateVerifyEmailField = async (authId: number, emailVerified: number, emailVerificationToken: string): Promise<void> => {
-  await AuthModel.update(
-    { 
-      emailVerified, 
-      emailVerificationToken
-    }, 
-    { where: { id: authId } }
-  );
+export const updateVerifyEmailField = async (authId: number, emailVerified: number, emailVerificationToken?: string): Promise<void> => {
+  try {
+    await AuthModel.update(
+      !emailVerificationToken ? 
+      { 
+        emailVerified 
+      } : { 
+        emailVerified, 
+        emailVerificationToken
+      }, 
+      { where: { id: authId } }
+    );
+  } catch (error) {
+    log.error(error);
+    throw new ServerError('Error updating verify email field', 'updateVerifyEmailField() method error');
+  }
 };
 
 export const updatePasswordToken = async (authId: number, token: string, tokenExpiration: Date): Promise<void> => {
@@ -118,10 +125,9 @@ export const updatePasswordToken = async (authId: number, token: string, tokenEx
 };
 
 export const updatePassword = async (authId: number, password: string): Promise<void> => {
-  const hashedPassword = await bcryptService.hash(password);
   await AuthModel.update(
     { 
-      password: hashedPassword, 
+      password, 
       passwordResetToken: '',
       passwordResetExpires: new Date()
     },
