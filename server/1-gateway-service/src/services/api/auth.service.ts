@@ -1,7 +1,6 @@
 import { config } from "@gateway/config";
 import axios, { AxiosResponse } from "axios";
 import { AxiosService } from "@gateway/services/axios";
-import { response } from "express";
 import { IAuth } from "@huseyinkaraman/jobber-shared";
 
 export let axiosAuthInstance : ReturnType<typeof axios.create>;
@@ -20,11 +19,6 @@ class AuthService {
   
   public async getRefreshToken(username: string): Promise<AxiosResponse> {
     const response: AxiosResponse = await axiosAuthInstance.get(`/refresh-token/${username}`);
-    return response;
-  }
-  
-  public async changePassword(currentPassword: string, newPassword: string): Promise<AxiosResponse> {
-    const response: AxiosResponse = await axiosAuthInstance.put(`/change-password`, { currentPassword, newPassword });
     return response;
   }
 
@@ -55,6 +49,11 @@ class AuthService {
   
   public async resetPassword(token: string, password: string, confirmPassword: string): Promise<AxiosResponse> {
     const response: AxiosResponse = await this.axiosService.axiosInstance.put(`/reset-password/${token}`, { password, confirmPassword });
+    return response;
+  }
+
+  public async changePassword(currentPassword: string, newPassword: string): Promise<AxiosResponse> {
+    const response: AxiosResponse = await axiosAuthInstance.put(`/change-password`, { currentPassword, newPassword });
     return response;
   }
 
